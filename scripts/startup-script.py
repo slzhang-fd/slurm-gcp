@@ -18,6 +18,7 @@ import datetime
 import httplib
 import os
 import shlex
+import shutil
 import socket
 import subprocess
 import time
@@ -52,6 +53,10 @@ SUSPEND_TIME      = @SUSPEND_TIME@
 
 DEF_PART_NAME   = "debug"
 CONTROL_MACHINE = CLUSTER_NAME + '-controller'
+
+SLURM_PREFIX  = APPS_DIR + '/slurm/slurm-' + SLURM_VERSION
+
+OMPI_VERSION = "v3.1.x"
 
 MOTD_HEADER = '''
 
@@ -214,7 +219,6 @@ def install_packages():
                 'wget',
                 'tmux',
                 'pdsh',
-                'openmpi'
                ]
 
     while subprocess.call(['yum', 'install', '-y'] + packages):
@@ -741,6 +745,8 @@ def install_slurm():
     subprocess.call(['../configure', '--prefix=%s' % SLURM_PREFIX,
                      '--sysconfdir=%s/etc' % CURR_SLURM_DIR])
     subprocess.call(['make', '-j', 'install'])
+    os.chdir('contribs/pmi2')
+    subprocess.call(['make', '-j', 'install'])
 
     subprocess.call(shlex.split("ln -s %s %s" % (SLURM_PREFIX, CURR_SLURM_DIR)))
 
@@ -988,6 +994,59 @@ def create_compute_image():
                                     CLUSTER_NAME, hostname, ZONE, ver)))
 #END create_compute_image()
 
+def install_ompi():
+
+    FNULL = open(os.devnull, 'w')
+
+    packages = ['autoconf',
+                'flex',
+                'gcc-c++',
+                'git',
+                'libevent-devel',
+                'libtool']
+
+    subprocess.call(['yum', 'install', '-y'] + packages)
+    if os.path.exists(APPS_DIR + '/ompi/' + OMPI_VERSION + '/src'):
+        shutil.rmtree(APPS_DIR + '/ompi/' + OMPI_VERSION + '/src')
+    ompi_git_cmd = ("git clone -b {ompi_version} "
+                    "https://github.com/open-mpi/ompi.git "
+                    "{apps_dir}/ompi/{ompi_version}/src").format(
+                            apps_dir     = APPS_DIR,
+                            ompi_version = OMPI_VERSION)
+    subprocess.call(shlex.split(ompi_git_cmd))
+    os.chdir("{apps_dir}/ompi/{ompi_version}/src"
+             .format(apps_dir     = APPS_DIR,
+                     ompi_version = OMPI_VERSION))
+    subprocess.call("./autogen.pl", stdout=FNULL)
+    if not os.path.exists("build"):
+        os.makedirs("build")
+    os.chdir("build")
+
+    subprocess.call(shlex.split(
+                    " ".join(("../configure",
+                              "--prefix={apps_dir}/ompi/{ompi_version}",
+                              "--with-pmi={apps_dir}/slurm/current",
+                              "--with-libevent=/usr",
+                              "--with-hwloc=/usr"))
+                    .format(apps_dir     = APPS_DIR,
+                            ompi_version = OMPI_VERSION)),
+                    stdout=FNULL)
+    subprocess.call(shlex.split("make -j install"), stdout=FNULL)
+
+    FNULL.close()
+
+#END install_ompi()
+
+def setup_ompi_bash_profile():
+
+    f = open('/etc/profile.d/ompi-{}.sh'.format(OMPI_VERSION), 'w')
+    f.write("""
+PATH={apps_dir}/ompi/{ompi_version}/bin:$PATH
+""".format(apps_dir     = APPS_DIR,
+           ompi_version = OMPI_VERSION))
+    f.close()
+
+#END setup_ompi_bash_profile()
 
 def setup_selinux():
 
@@ -1028,6 +1087,8 @@ def main():
     install_packages()
     setup_munge()
     setup_bash_profile()
+    setup_ompi_bash_profile()
+
 
     if (CONTROLLER_SECONDARY_DISK and (INSTANCE_TYPE == "controller")):
         setup_secondary_disks()
@@ -1041,6 +1102,7 @@ def main():
         setup_modules()
         start_munge()
         install_slurm()
+        install_ompi()
 
         try:
             subprocess.call("{}/slurm/scripts/custom-controller-install"
