@@ -47,7 +47,9 @@ required:
 optional:
 - compute_disk_type
 - compute_disk_size_gb
-- compute_labels
+- compute_secondary_disk
+- compute_secondary_disk_type
+- compute_secondary_disk_size_gb
 - controller_disk_type
 - controller_disk_size_gb
 - controller_labels
@@ -142,6 +144,23 @@ properties:
     minimum     : 10
     maximum     : 64000
     description : Size of disk for the secondary disk.
+
+  compute_secondary_disk:
+    type        : boolean
+    default     : False
+    description : Create secondary disk mounted to compute nodes (True/False)
+
+  compute_secondary_disk_type:
+    enum        : ["pd-ssd", "pd-standard", "local-ssd"]
+    default     : pd-standard
+    description : Disk type (pd-ssd or pd-standard or local-ssd) for secondary disk.
+
+  compute_secondary_disk_size_gb:
+    type        : integer
+    default     : 100
+    minimum     : 10
+    maximum     : 3000
+    description : Size of disk for the secondary disk (3000 is limit for local-ssd).
 
   cpu_platform:
     enum        :

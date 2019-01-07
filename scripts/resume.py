@@ -20,6 +20,7 @@
 import argparse
 import httplib2
 import logging
+import math
 import shlex
 import subprocess
 import time
@@ -51,6 +52,10 @@ NETWORK      = "projects/{}/regions/{}/subnetworks/{}-slurm-subnet".format(PROJE
 
 GPU_TYPE     = '@GPU_TYPE@'
 GPU_COUNT    = '@GPU_COUNT@'
+
+COMPUTE_SECONDARY_DISK      = @COMPUTE_SECONDARY_DISK@
+COMPUTE_SECONDARY_DISK_TYPE = '@COMPUTE_SECONDARY_DISK_TYPE@'
+COMPUTE_SECONDARY_DISK_SIZE_GB = '@COMPUTE_SECONDARY_DISK_SIZE_GB@'
 
 SCONTROL     = '/apps/slurm/current/bin/scontrol'
 LOGFILE      = '/apps/slurm/log/resume.log'
@@ -161,6 +166,65 @@ def create_instance(compute, project, zone, instance_type, instance_name,
         config['networkInterfaces'][0]['accessConfigs'] = [
             {'type': 'ONE_TO_ONE_NAT', 'name': 'External NAT'}
         ]
+
+    if COMPUTE_SECONDARY_DISK:
+        disk_type = "projects/{}/zones/{}/diskTypes/{}".format(
+            PROJECT, ZONE, COMPUTE_SECONDARY_DISK_TYPE)
+
+        if COMPUTE_SECONDARY_DISK_TYPE == 'local-ssd':
+            ssd = 0
+            while ssd < (math.ceil(float(COMPUTE_SECONDARY_DISK_SIZE_GB)/375)):
+                config['disks'].append({
+                    'autoDelete': True,
+                    'type': "SCRATCH",
+                    'interface': "NVME",
+                    'initializeParams': {
+                        'diskType': disk_type
+                    }
+                })
+                ssd += 1
+
+            ssd = math.ceil(float(COMPUTE_SECONDARY_DISK_SIZE_GB)/375)
+            if ssd < 2:
+                config['metadata']['items'].append({
+                    'key': 'startup-script',
+                    'value': """#!/bin/bash
+mkfs.ext4 -F /dev/nvme0n1
+mount -a
+chmod a+w /mnt/disks/comp_sec
+gcloud compute instances remove-metadata {} --zone={} --keys=startup-script
+""".format(instance_name, ZONE)
+                })
+            else:
+                config['metadata']['items'].append({
+                    'key': 'startup-script',
+                    'value': """#!/bin/bash
+mdadm --create /dev/md0 --level=0 --raid-devices={} /dev/nvme0n*
+mkfs.ext4 -F /dev/md0
+mount -a
+chmod a+w /mnt/disks/comp_sec
+gcloud compute instances remove-metadata {} --zone={} --keys=startup-script
+""".format(int(ssd), instance_name, ZONE)
+                })
+        else:
+            config['disks'].append({
+                'autoDelete': True,
+                'type': "PERSISTENT",
+                'initializeParams': {
+                    'diskType': disk_type,
+                    'diskSizeGb': COMPUTE_SECONDARY_DISK_SIZE_GB
+                }
+            })
+
+            config['metadata']['items'].append({
+                'key': 'startup-script',
+                'value': """#!/bin/bash
+mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/sdb
+mount -a
+chmod a+w /mnt/disks/comp_sec
+gcloud compute instances remove-metadata {} --zone={} --keys=startup-script
+""".format(instance_name, ZONE)
+            })
 
     return compute.instances().insert(
         project=project,

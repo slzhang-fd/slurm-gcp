@@ -25,7 +25,7 @@ import urllib
 import urllib2
 
 CLUSTER_NAME      = '@CLUSTER_NAME@'
-MACHINE_TYPE      = '@MACHINE_TYPE@' # e.g. n1-standard-1, n1-starndard-2
+MACHINE_TYPE      = '@MACHINE_TYPE@' # e.g. n1-standard-1, n1-standard-2
 INSTANCE_TYPE     = '@INSTANCE_TYPE@' # e.g. controller, login, compute
 
 PROJECT           = '@PROJECT@'
@@ -46,7 +46,10 @@ GPU_COUNT         = @GPU_COUNT@
 NFS_APPS_SERVER   = '@NFS_APPS_SERVER@'
 NFS_HOME_SERVER   = '@NFS_HOME_SERVER@'
 CONTROLLER_SECONDARY_DISK = @CONTROLLER_SECONDARY_DISK@
-SEC_DISK_DIR      = '/mnt/disks/sec'
+COMPUTE_SECONDARY_DISK = @COMPUTE_SECONDARY_DISK@
+COMPUTE_SECONDARY_DISK_TYPE = '@COMPUTE_SECONDARY_DISK_TYPE@'
+CTRL_SEC_DISK_DIR = '/mnt/disks/ctrl_sec'
+COMP_SEC_DISK_DIR = '/mnt/disks/comp_sec'
 PREEMPTIBLE       = @PREEMPTIBLE@
 SUSPEND_TIME      = @SUSPEND_TIME@
 
@@ -312,7 +315,7 @@ def setup_nfs_exports():
     if CONTROLLER_SECONDARY_DISK:
         f.write("""
 %s  *(rw,no_subtree_check,no_root_squash)
-""" % SEC_DISK_DIR)
+""" % CTRL_SEC_DISK_DIR)
     f.close()
 
     subprocess.call(shlex.split("exportfs -a"))
@@ -922,21 +925,45 @@ def setup_nfs_sec_vols():
         if ((INSTANCE_TYPE != "controller")):
             f.write("""
 {1}:{0}    {0}     nfs      rw,hard,intr  0     0
-""".format(SEC_DISK_DIR, CONTROL_MACHINE))
+""".format(CTRL_SEC_DISK_DIR, CONTROL_MACHINE))
     f.close()
 
 #END setup_nfs_sec_vols()
 
 def setup_secondary_disks():
+    if INSTANCE_TYPE == "compute":
+        if COMPUTE_SECONDARY_DISK_TYPE == "local-ssd":
+            num_ssd = subprocess.check_output("lsblk | grep -c nvme", shell=True).strip()
+            if int(num_ssd) > 1:
+                subprocess.call(shlex.split("sudo yum install mdadm -y"))
+                subprocess.call("sudo mdadm --create /dev/md0 --level=0 --raid-devices=" + num_ssd + " /dev/nvme0n*", shell=True)
+                device = 'md0'
+            else:
+                device = 'nvme0n1'
 
-    subprocess.call(shlex.split("sudo mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/sdb"))
-    f = open('/etc/fstab', 'a')
+            subprocess.call(shlex.split("sudo mkfs.ext4 -F /dev/"+device))
+            f = open('/etc/fstab', 'a')
 
-    f.write("""
+            f.write("""
+/dev/{1}    {0}  ext4    discard,defaults,nofail,nobarrier  0  2
+""".format(COMP_SEC_DISK_DIR,device))
+            f.close()
+        else:
+            subprocess.call(shlex.split("sudo mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/sdb"))
+            f = open('/etc/fstab', 'a')
+
+            f.write("""
 /dev/sdb    {0}  ext4    discard,defaults,nofail  0  2
-""".format(SEC_DISK_DIR))
-    f.close()
+""".format(COMP_SEC_DISK_DIR))
+            f.close()
+    else:
+        subprocess.call(shlex.split("sudo mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/sdb"))
+        f = open('/etc/fstab', 'a')
 
+        f.write("""
+/dev/sdb    {0}  ext4    discard,defaults,nofail  0  2
+""".format(CTRL_SEC_DISK_DIR))
+        f.close()
 #END setup_secondary_disks()
 
 def mount_nfs_vols():
@@ -1015,9 +1042,12 @@ def main():
         os.makedirs(APPS_DIR + '/slurm')
         print "ww Created Slurm Folders"
 
-    if CONTROLLER_SECONDARY_DISK:
-        if not os.path.exists(SEC_DISK_DIR):
-            os.makedirs(SEC_DISK_DIR)
+    if CONTROLLER_SECONDARY_DISK and not os.path.exists(CTRL_SEC_DISK_DIR):
+            os.makedirs(CTRL_SEC_DISK_DIR)
+
+    if (COMPUTE_SECONDARY_DISK and (INSTANCE_TYPE=="compute") and
+        not os.path.exists(COMP_SEC_DISK_DIR)):
+            os.makedirs(COMP_SEC_DISK_DIR)
 
     start_motd()
 
@@ -1029,7 +1059,8 @@ def main():
     setup_munge()
     setup_bash_profile()
 
-    if (CONTROLLER_SECONDARY_DISK and (INSTANCE_TYPE == "controller")):
+    if ((CONTROLLER_SECONDARY_DISK and (INSTANCE_TYPE == "controller")) or
+        (COMPUTE_SECONDARY_DISK and (INSTANCE_TYPE == "compute"))):
         setup_secondary_disks()
 
     setup_nfs_apps_vols()
@@ -1039,6 +1070,10 @@ def main():
     if INSTANCE_TYPE == "controller":
         mount_nfs_vols()
         setup_modules()
+
+        if CONTROLLER_SECONDARY_DISK:
+            os.chmod(CTRL_SEC_DISK_DIR, 0o777)
+
         start_munge()
         install_slurm()
 
@@ -1099,6 +1134,10 @@ def main():
         install_compute_service_scripts()
         setup_slurmd_cronjob()
         mount_nfs_vols()
+
+        if COMPUTE_SECONDARY_DISK:
+            os.chmod(COMP_SEC_DISK_DIR, 0o777)
+
         start_munge()
 
         try:
