@@ -1099,7 +1099,7 @@ def main():
 
     if INSTANCE_TYPE == "controller":
         mount_nfs_vols()
-        setup_modules()
+        #setup_modules()
         start_munge()
         install_slurm()
         install_ompi()
