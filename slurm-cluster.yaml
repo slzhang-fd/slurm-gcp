@@ -65,6 +65,7 @@ resources:
     #     key1 : value1
     #     key2 : value2
 
+    #compute_image              :
     #nfs_apps_server            :
     #nfs_apps_dir               : /apps
     #nfs_home_server            :

@@ -87,7 +87,7 @@ resources:
       boot: true
       autoDelete: true
       initializeParams:
-        sourceImage: https://www.googleapis.com/compute/v1/projects/centos-cloud/global/images/family/centos-7
+        sourceImage: https://www.googleapis.com/compute/v1/{{ properties["compute_image"] }}
         diskType: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/{{ properties["controller_disk_type"] }}
         diskSizeGb: {{ properties["controller_disk_size_gb"] }}
 {% if properties['controller_secondary_disk'] %}
@@ -167,7 +167,7 @@ resources:
       boot: true
       autoDelete: true
       initializeParams:
-        sourceImage: https://www.googleapis.com/compute/v1/projects/centos-cloud/global/images/family/centos-7
+        sourceImage: https://www.googleapis.com/compute/v1/{{ properties["compute_image"] }}
         diskType: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/{{ properties["login_disk_type"] }}
         diskSizeGb: {{ properties["login_disk_size_gb"] }}
   {% if (properties ['vpc_subnet'] and properties ['shared_vpc_host_proj'])  %}
@@ -226,7 +226,7 @@ resources:
       boot: true
       autoDelete: true
       initializeParams:
-        sourceImage: https://www.googleapis.com/compute/v1/projects/centos-cloud/global/images/family/centos-7
+        sourceImage: https://www.googleapis.com/compute/v1/{{ properties["compute_image"] }}
         diskType: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/{{ properties["compute_disk_type"] }}
         diskSizeGb: {{ properties["compute_disk_size_gb"] }}
   {% if (properties ['vpc_subnet'] and properties ['shared_vpc_host_proj'])  %}
@@ -288,7 +288,7 @@ resources:
       boot: true
       autoDelete: true
       initializeParams:
-        sourceImage: https://www.googleapis.com/compute/v1/projects/centos-cloud/global/images/family/centos-7
+        sourceImage: https://www.googleapis.com/compute/v1/{{ properties["compute_image"] }}
         diskType: https://www.googleapis.com/compute/v1/projects/{{ env["project"] }}/zones/{{ properties["zone"] }}/diskTypes/{{ properties["compute_disk_type"] }}
         diskSizeGb: 10
   {% if (properties ['vpc_subnet'] and properties ['shared_vpc_host_proj'])  %}

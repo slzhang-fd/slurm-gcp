@@ -3,7 +3,7 @@
 # Copyright 2017 SchedMD LLC.
 # Modified for use with the Slurm Resource Manager.
 #
-# Copyright 2015 Google Inc. All rights reserved.
+# Copyright 2019 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ VPC_SUBNET   = '@VPC_SUBNET@'
 
 DISK_SIZE_GB = '@DISK_SIZE_GB@'
 DISK_TYPE    = '@DISK_TYPE@'
+
+COMPUTE_IMAGE = '@COMPUTE_IMAGE@'
 
 LABELS       = @LABELS@
 
@@ -243,10 +245,13 @@ def main(arg_nodes):
         source_disk_image = image_response['selfLink']
         have_compute_img = True
     except:
-        image_response = compute.images().getFromFamily(
-            project='centos-cloud', family='centos-7').execute()
-        source_disk_image = image_response['selfLink']
-
+        source_disk_image = "https://www.googleapis.com/compute/v1/{}".format(COMPUTE_IMAGE)
+        #if COMPUTE_IMAGE:
+        #    source_disk_image = "https://www.googleapis.com/compute/v1/{}".format(COMPUTE_IMAGE)
+        #else:
+        #    image_response = compute.images().getFromFamily(
+        #        project='centos-cloud', family='centos-7').execute()
+        #    source_disk_image = image_response['selfLink']
     while True:
         add_instances(compute, source_disk_image, have_compute_img, node_list)
         if not len(retry_list):

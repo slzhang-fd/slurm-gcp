@@ -47,6 +47,7 @@ required:
 optional:
 - compute_disk_type
 - compute_disk_size_gb
+- compute_image
 - compute_labels
 - controller_disk_type
 - controller_disk_size_gb
@@ -98,6 +99,11 @@ properties:
     minimum     : 10
     maximum     : 2000
     description : Size of disk for compute nodes.
+
+  compute_image:
+    type        : string
+    default     : projects/centos-cloud/global/images/family/centos-7
+    description : Image to use as a source image for the compute image.
 
   compute_labels:
     type        : object
