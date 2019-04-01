@@ -239,7 +239,7 @@ resources:
     networkInterfaces:
     - subnetwork: $(ref.{{properties["cluster_name"]}}-slurm-subnet.selfLink)
   {% endif %}
-  {% if properties['external_compute_ips'] %}
+  {% if properties['external_compute_ips'] or properties['shared_vpc_host_proj'] %}
       accessConfigs:
       - name: External NAT
         type: ONE_TO_ONE_NAT
@@ -301,7 +301,7 @@ resources:
     networkInterfaces:
     - subnetwork: $(ref.{{properties["cluster_name"]}}-slurm-subnet.selfLink)
   {% endif %}
-  {% if properties['external_compute_ips'] %}
+  {% if properties['external_compute_ips'] or properties['shared_vpc_host_proj'] %}
       accessConfigs:
       - name: External NAT
         type: ONE_TO_ONE_NAT
