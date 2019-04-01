@@ -40,7 +40,6 @@ required:
 - login_machine_type
 - max_node_count
 - private_google_access
-- region
 - slurm_version
 - static_node_count
 - zone
@@ -256,10 +255,6 @@ properties:
     type        : boolean
     default     : True
     description : Private Google Access is Enabled (True/False).
-
-  region:
-    type        : string
-    description : Region to run the instances in.
 
   shared_vpc_host_project:
     type        : string
