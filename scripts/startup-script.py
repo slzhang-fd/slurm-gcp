@@ -1078,7 +1078,8 @@ def main():
         # Wait for slurmdbd to come up
         time.sleep(5)
 
-        oslogin_chars = ['@', '.']
+        oslogin_chars = ['@', '.', '+', '-', '!', '?', '#', '$', '%', '&',
+                         '\'', '*', '/', '=', '^', '`', '{', '}', '|', '~']
 
         SLURM_USERS = DEF_SLURM_USERS
 
