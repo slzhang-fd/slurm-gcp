@@ -65,7 +65,12 @@ resources:
     #     key1 : value1
     #     key2 : value2
 
-    #compute_image              :
+    # The 'compute_image' field allows you to override the default CentOS 7
+    # image.
+    # Find your image URI on the Images page in the GCP console, click
+    # "Equivalent REST", and input the 'selfLink' field below.
+    #compute_image              : projects/centos-cloud/global/images/family/centos-7
+
     #nfs_apps_server            :
     #nfs_apps_dir               : /apps
     #nfs_home_server            :

@@ -887,6 +887,10 @@ LD_LIBRARY_PATH=$CUDA_PATH/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 #END setup_bash_profile()
 
 def setup_nfs_apps_vols():
+    os.system("sed -i '/$CONTROL_MACHINE:\//d' /etc/fstab")
+    os.system("sed -i '/:\/apps/d' /etc/fstab")
+    os.system("sed -i '/:\/home/d' /etc/fstab")
+    os.system("sed -i '/:\/etc\/munge/d' /etc/fstab")
 
     f = open('/etc/fstab', 'a')
     if not NFS_APPS_SERVER:
@@ -898,6 +902,10 @@ def setup_nfs_apps_vols():
         f.write("""
 {1}:{2}    {0}     nfs      rw,hard,intr  0     0
 """.format(APPS_DIR, NFS_APPS_SERVER, NFS_APPS_DIR))
+    if ((INSTANCE_TYPE != "controller")):
+        f.write("""
+{1}:{0}    {0}     nfs      rw,hard,intr  0     0
+""".format(MUNGE_DIR, CONTROL_MACHINE))
     f.close()
 
 #END setup_nfs_apps_vols()
