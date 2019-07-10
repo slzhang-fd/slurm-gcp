@@ -52,6 +52,8 @@ SEC_DISK_DIR      = '/mnt/disks/sec'
 PREEMPTIBLE       = @PREEMPTIBLE@
 SUSPEND_TIME      = @SUSPEND_TIME@
 
+NETWORK_STORAGE   = @NETWORK_STORAGE@
+
 DEF_PART_NAME   = "debug"
 CONTROL_MACHINE = CLUSTER_NAME + '-controller'
 
@@ -218,6 +220,10 @@ def install_packages():
                 'pdsh',
                 'openmpi'
                ]
+
+    while subprocess.call(['yum', 'update', '-y']):
+        print "yum failed to update packages. Trying again in 5 seconds"
+        time.sleep(5)
 
     while subprocess.call(['yum', 'install', '-y'] + packages):
         print "yum failed to install packages. Trying again in 5 seconds"
@@ -938,6 +944,39 @@ def setup_nfs_sec_vols():
 
 #END setup_nfs_sec_vols()
 
+
+def setup_network_storage():
+
+    cifs_installed = 0
+    lustre_installed = 0
+    f = open('/etc/fstab', 'a')
+    for i in range(len(NETWORK_STORAGE)):
+        subprocess.call(['sudo', 'mkdir', NETWORK_STORAGE[i]["local_mount"]])
+        if NETWORK_STORAGE[i]["fs_type"] == "cifs":
+            if cifs_installed == 0:
+                subprocess.call('sudo yum install -y cifs-utils')
+                cifs_installed = 1
+        if NETWORK_STORAGE[i]["fs_type"] == "lustre":
+            if lustre_installed == 0:
+                subprocess.call("mkdir /tmp/lustre", shell=True)
+                subprocess.call('for j in "kmod-lustre-client-2*.rpm" "lustre-client-2*.rpm"; do wget -r -l1 --no-parent -A "$j" "https://downloads.whamcloud.com/public/lustre/latest-feature-release/el7/client/RPMS/x86_64/" -P /tmp/lustre; done', shell=True)
+                subprocess.call("wait `jobs -p`", shell=True)
+                subprocess.call("sudo yum install -y wget libyaml", shell=True)
+                subprocess.call('find /tmp/lustre -name "*.rpm" | xargs sudo rpm -ivh', shell=True)
+                subprocess.call("rm -rf /tmp/lustre", shell=True)
+                subprocess.call("modprobe lustre", shell=True)
+                lustre_installed = 1
+            else:
+                print "Lustre already installed, skipping..."
+        f.write("""
+{0}:{1}    {2}     {3}      {4}  0     0
+""".format(NETWORK_STORAGE[i]["server_ip"], NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], NETWORK_STORAGE[i]["mount_options"]))
+    f.close()
+    subprocess.call(shlex.split("sudo mount -a"))
+
+#END setup_network_storage()
+
+
 def setup_secondary_disks():
 
     subprocess.call(shlex.split("sudo mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/sdb"))
@@ -1046,10 +1085,11 @@ def main():
 
     setup_nfs_apps_vols()
     setup_nfs_home_vols()
+    mount_nfs_vols()
     setup_nfs_sec_vols()
+    setup_network_storage()
 
     if INSTANCE_TYPE == "controller":
-        mount_nfs_vols()
         start_munge()
         install_slurm()
 
@@ -1109,7 +1149,6 @@ def main():
     elif INSTANCE_TYPE == "compute":
         install_compute_service_scripts()
         setup_slurmd_cronjob()
-        mount_nfs_vols()
         start_munge()
 
         try:
@@ -1133,7 +1172,6 @@ def main():
             subprocess.call(shlex.split('systemctl start slurmd'))
 
     else: # login nodes
-        mount_nfs_vols()
         start_munge()
 
         try:

@@ -71,10 +71,26 @@ resources:
     # "Equivalent REST", and input the 'selfLink' field below.
     #compute_image              : projects/centos-cloud/global/images/family/centos-7
 
+    # The 'network_storage' array allows you to specify multiple network
+    # mounts. Supported filesystems: NFS, CIFS/SMB, and Lustre.
+    #
+    # All entries will be added to /etc/fstab, and if necessary the filesystem
+    # packages will be installed for supported filesystem.
+    #
+    # Copy the "server_ip" field through the "mount_options" field to make
+    # another entry.
+    #network_storage :
+    #     - server_ip           :
+    #       remote_mount        :
+    #       local_mount         :
+    #       fs_type             :
+    #       mount_options       :
+
     #nfs_apps_server            :
     #nfs_apps_dir               : /apps
     #nfs_home_server            :
     #nfs_home_dir               : /home
+
     #controller_secondary_disk          : True
     #controller_secondary_disk_type     : pd-standard
     #controller_secondary_disk_size_gb  : 300

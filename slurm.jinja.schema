@@ -64,6 +64,7 @@ optional:
 - login_labels
 - login_node_count
 - munge_key
+- network_storage
 - nfs_apps_dir
 - nfs_apps_server
 - nfs_home_dir
@@ -231,6 +232,45 @@ properties:
     description : Specific munge key to use
                   (e.g "date +%s | sha512sum | cut -d' ' -f1"). If not specified
                   then a random key will be generated at deployment creation.
+
+  network_storage:
+    type        : array
+    default     : []
+    description : An array of network attached storage mounts to be configured on the instances.
+    items:
+      type: object
+      required :
+      - server_ip
+      - remote_mount
+      - local_mount
+      - fs_type
+      optional :
+      - mount_options
+      properties :
+
+        server_ip:
+          type          : string
+          description   : IP of the remote file server.
+
+        remote_mount:
+          type          : string
+          description   : Remote mount directory of the remote file server.
+
+        local_mount:
+          type          : string
+          description   : Local mount directory on the instances.
+
+        fs_type:
+          enum          :
+                        - nfs
+                        - cifs
+                        - lustre
+          description   : Filesystem type of the remote file server. Supported currently are NFS, CIFS, and Lustre.
+
+        mount_options:
+          type          : string
+          default       : rw
+          description   : Filesystem mount options for this mount.
 
   nfs_apps_dir:
     type        : string
