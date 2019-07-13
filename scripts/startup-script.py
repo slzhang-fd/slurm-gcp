@@ -595,8 +595,7 @@ PartitionName={} Nodes={}-compute[1-{}] Default=YES MaxTime=INFINITE State=UP LL
 """.format(DEF_PART_NAME, CLUSTER_NAME, MAX_NODE_COUNT)
 
     etc_dir = CURR_SLURM_DIR + '/etc'
-    if not os.path.exists(etc_dir):
-        os.makedirs(etc_dir)
+    makedir(etc_dir)
     f = open(etc_dir + '/slurm.conf', 'w')
     f.write(conf)
     f.close()
@@ -640,8 +639,7 @@ StorageType=accounting_storage/mysql
 
 """.format(apps_dir = APPS_DIR, control_machine = CONTROL_MACHINE)
     etc_dir = CURR_SLURM_DIR + '/etc'
-    if not os.path.exists(etc_dir):
-        os.makedirs(etc_dir)
+    makedir(etc_dir)
     f = open(etc_dir + '/slurmdbd.conf', 'w')
     f.write(conf)
     f.close()
@@ -681,8 +679,7 @@ ConstrainDevices=yes
 def install_meta_files():
 
     scripts_path = APPS_DIR + '/slurm/scripts'
-    if not os.path.exists(scripts_path):
-        os.makedirs(scripts_path)
+    makedir(scripts_path)
 
     GOOGLE_URL = "http://metadata.google.internal/computeMetadata/v1/instance/attributes"
 
@@ -721,8 +718,7 @@ def install_slurm():
     prev_path = os.getcwd()
 
     SRC_PATH = APPS_DIR + "/slurm/src"
-    if not os.path.exists(SRC_PATH):
-        os.makedirs(SRC_PATH)
+    makedir(SRC_PATH)
     os.chdir(SRC_PATH)
 
     use_version = "";
@@ -744,8 +740,7 @@ def install_slurm():
     os.chdir(use_version)
     SLURM_PREFIX  = APPS_DIR + '/slurm/' + use_version
 
-    if not os.path.exists('build'):
-        os.makedirs('build')
+    makedir('build')
     os.chdir('build')
     subprocess.call(['../configure', '--prefix=%s' % SLURM_PREFIX,
                      '--sysconfdir=%s/etc' % CURR_SLURM_DIR])
@@ -779,8 +774,7 @@ d %s 0755 slurm slurm -
 """ % run_dir)
     f.close()
 
-    if not os.path.exists(run_dir):
-        os.makedirs(run_dir)
+    makedir(run_dir)
 
     os.chmod(run_dir, 0o755)
     subprocess.call(['chown', 'slurm:', run_dir])
@@ -871,6 +865,12 @@ WantedBy=multi-user.target
 
 #END install_compute_service_scripts()
 
+def makedir(dir):
+
+    if not os.path.exists(dir):
+        os.makedirs(dir)
+
+#END makedir()
 
 def setup_bash_profile():
 
@@ -951,7 +951,7 @@ def setup_network_storage():
     lustre_installed = 0
     f = open('/etc/fstab', 'a')
     for i in range(len(NETWORK_STORAGE)):
-        subprocess.call(['sudo', 'mkdir', NETWORK_STORAGE[i]["local_mount"]])
+        makedir(NETWORK_STORAGE[i]["local_mount"])
         if NETWORK_STORAGE[i]["fs_type"] == "cifs":
             if cifs_installed == 0:
                 subprocess.call('sudo yum install -y cifs-utils')
@@ -1071,8 +1071,7 @@ def main():
 
     start_motd()
 
-    if not os.path.exists('/var/log/slurm'):
-        os.makedirs('/var/log/slurm')
+    makedir('/var/log/slurm')
 
     add_slurm_user()
     install_packages()
