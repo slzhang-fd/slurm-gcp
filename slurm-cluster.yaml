@@ -72,12 +72,20 @@ resources:
     #compute_image              : projects/centos-cloud/global/images/family/centos-7
 
     # The 'network_storage' array allows you to specify multiple network
-    # mounts. Supported filesystems: NFS, CIFS/SMB, and Lustre.
+    # mounts. Supported filesystems: nfs, cifs, gcsfuse, and lustre.
     #
     # All entries will be added to /etc/fstab, and if necessary the filesystem
     # packages will be installed for supported filesystem.
     #
-    # Copy the "server_ip" field through the "mount_options" field to make
+    # If using gcsfuse, enter the bucket name in the remote_mount field, and
+    # "gcs" in the server_ip field. To enable automatic mounting for users, in
+    # "mount_options" enter "defaults,_netdev,allow_other,uid=XXXX,gid=XXXX",
+    # replacing the "XXXX" with your OSLogin UID and GID. If not using OSLogin
+    # use your unix UID and GID. See
+    # https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/mounting.md
+    # for more information.
+    #
+    # Copy the "server_ip" line through the "mount_options" line to make
     # another entry.
     #network_storage :
     #     - server_ip           :

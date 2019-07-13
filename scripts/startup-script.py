@@ -955,6 +955,7 @@ def setup_network_storage():
 
     cifs_installed = 0
     lustre_installed = 0
+    gcsfuse_installed = 0
     for i in range(len(NETWORK_STORAGE)):
         makedir(NETWORK_STORAGE[i]["local_mount"])
         # Check if we're going to overlap with what's normally hosted on the
@@ -969,22 +970,44 @@ def setup_network_storage():
             EXTERNAL_MOUNT_MUNGE = 1
 
         if ((NETWORK_STORAGE[i]["fs_type"] == "cifs") and (cifs_installed == 0)):
-                subprocess.call('sudo yum install -y cifs-utils')
-                cifs_installed = 1
+            subprocess.call('sudo yum install -y cifs-utils')
+            cifs_installed = 1
         elif ((NETWORK_STORAGE[i]["fs_type"] == "lustre") and (lustre_installed == 0)):
-                subprocess.call("mkdir /tmp/lustre", shell=True)
-                subprocess.call("sudo yum install -y wget libyaml", shell=True)
-                subprocess.call('for j in "kmod-lustre-client-2*.rpm" "lustre-client-2*.rpm"; do wget -r -l1 --no-parent -A "$j" "https://downloads.whamcloud.com/public/lustre/latest-feature-release/el7/client/RPMS/x86_64/" -P /tmp/lustre; done', shell=True)
-                subprocess.call('find /tmp/lustre -name "*.rpm" | xargs sudo rpm -ivh', shell=True)
-                subprocess.call("rm -rf /tmp/lustre", shell=True)
-                subprocess.call("modprobe lustre", shell=True)
-                lustre_installed = 1
+            makedir("/tmp/lustre")
+            subprocess.call("sudo yum install -y wget libyaml", shell=True)
+            subprocess.call('for j in "kmod-lustre-client-2*.rpm" "lustre-client-2*.rpm"; do wget -r -l1 --no-parent -A "$j" "https://downloads.whamcloud.com/public/lustre/latest-feature-release/el7/client/RPMS/x86_64/" -P /tmp/lustre; done', shell=True)
+            subprocess.call('find /tmp/lustre -name "*.rpm" | xargs sudo rpm -ivh', shell=True)
+            subprocess.call("rm -rf /tmp/lustre", shell=True)
+            subprocess.call("modprobe lustre", shell=True)
+            lustre_installed = 1
+        elif ((NETWORK_STORAGE[i]["fs_type"] == "gcsfuse") and (gcsfuse_installed == 0)):
+            f = open('/etc/yum.repos.d/gcsfuse.repo', 'a')
+            f.write("""
+[gcsfuse]
+name=gcsfuse (packages.cloud.google.com)
+baseurl=https://packages.cloud.google.com/yum/repos/gcsfuse-el7-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
+       https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg""")
+            f.close()
+            subprocess.call("sudo yum update -y", shell=True)
+            subprocess.call("sudo yum install -y gcsfuse", shell=True)
+            gcsfuse_installed = 1
 
-        f = open('/etc/fstab', 'a')
-        f.write("""
+        if ((NETWORK_STORAGE[i]["fs_type"] == "gcsfuse")):
+            f = open('/etc/fstab', 'a')
+            f.write("""
+{0}    {1}     {2}      {3}  0     0
+""".format(NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], NETWORK_STORAGE[i]["mount_options"]))
+            f.close()
+        else:
+            f = open('/etc/fstab', 'a')
+            f.write("""
 {0}:{1}    {2}     {3}      {4}  0     0
 """.format(NETWORK_STORAGE[i]["server_ip"], NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], NETWORK_STORAGE[i]["mount_options"]))
-        f.close()
+            f.close()
 
 #END setup_network_storage()
 

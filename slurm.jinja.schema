@@ -261,6 +261,7 @@ properties:
                         - nfs
                         - cifs
                         - lustre
+                        - gcsfuse
           description   : Filesystem type of the remote file server. Supported currently are NFS, CIFS, and Lustre.
 
         mount_options:
