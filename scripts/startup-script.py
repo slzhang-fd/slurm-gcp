@@ -43,16 +43,15 @@ DEF_SLURM_USERS   = '@DEF_SLURM_USERS@'
 EXTERNAL_COMPUTE_IPS = @EXTERNAL_COMPUTE_IPS@
 GPU_TYPE          = '@GPU_TYPE@'
 GPU_COUNT         = @GPU_COUNT@
-NFS_APPS_SERVER   = '@NFS_APPS_SERVER@'
-NFS_APPS_DIR      = '@NFS_APPS_DIR@'
-NFS_HOME_SERVER   = '@NFS_HOME_SERVER@'
-NFS_HOME_DIR      = '@NFS_HOME_DIR@'
 CONTROLLER_SECONDARY_DISK = @CONTROLLER_SECONDARY_DISK@
 SEC_DISK_DIR      = '/mnt/disks/sec'
 PREEMPTIBLE       = @PREEMPTIBLE@
 SUSPEND_TIME      = @SUSPEND_TIME@
 
 NETWORK_STORAGE   = @NETWORK_STORAGE@
+EXTERNAL_MOUNT_APPS = 0
+EXTERNAL_MOUNT_HOME = 0
+EXTERNAL_MOUNT_MUNGE = 0
 
 DEF_PART_NAME   = "debug"
 CONTROL_MACHINE = CLUSTER_NAME + '-controller'
@@ -277,7 +276,7 @@ WantedBy=multi-user.target""")
 
     subprocess.call(['systemctl', 'enable', 'munge'])
 
-    if (INSTANCE_TYPE != "controller"):
+    if ((INSTANCE_TYPE != "controller") and (EXTERNAL_MOUNT_MUNGE == 0)):
         f = open('/etc/fstab', 'a')
         f.write("""
 {1}:{0}    {0}     nfs      rw,hard,intr  0     0
@@ -306,15 +305,16 @@ def start_munge():
 def setup_nfs_exports():
 
     f = open('/etc/exports', 'w')
-    if not NFS_HOME_SERVER:
+    if EXTERNAL_MOUNT_HOME == 0:
         f.write("""
 /home  *(rw,no_subtree_check,no_root_squash)
 """)
-    if not NFS_APPS_SERVER:
+    if EXTERNAL_MOUNT_APPS == 0:
         f.write("""
 %s  *(rw,no_subtree_check,no_root_squash)
 """ % APPS_DIR)
-    f.write("""
+    if EXTERNAL_MOUNT_MUNGE == 0:
+        f.write("""
 /etc/munge *(rw,no_subtree_check,no_root_squash)
 """)
     if CONTROLLER_SECONDARY_DISK:
@@ -713,6 +713,9 @@ def install_meta_files():
 
 def install_slurm():
 
+    makedir(APPS_DIR + '/slurm')
+    print "ww Created Slurm Folders"
+
     SLURM_PREFIX = "";
 
     prev_path = os.getcwd()
@@ -892,87 +895,93 @@ LD_LIBRARY_PATH=$CUDA_PATH/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 
 #END setup_bash_profile()
 
-def setup_nfs_apps_vols():
+def cleanup_mounts():
+    # Clean up any old entries for /apps, /home, or /etc/munge from the
+    # provided image.
+    # Any such configurations should be provided in the YAML network_storage
+    # field.
+    os.system("umount $(cat /etc/fstab | grep -v '#' | awk '{print $1}' | cut -d':' -f2 | grep -v 'UUID')")
     os.system("sed -i '/$CONTROL_MACHINE:\//d' /etc/fstab")
-    os.system("sed -i '/:\/apps/d' /etc/fstab")
+    os.system("sed -i '/:APPS_DIR/d' /etc/fstab")
     os.system("sed -i '/:\/home/d' /etc/fstab")
-    os.system("sed -i '/:\/etc\/munge/d' /etc/fstab")
+    os.system("sed -i '/:MUNGE_DIR/d' /etc/fstab")
 
-    f = open('/etc/fstab', 'a')
-    if not NFS_APPS_SERVER:
-        if ((INSTANCE_TYPE != "controller")):
-            f.write("""
-{1}:{0}    {0}     nfs      rw,hard,intr  0     0
-""".format(APPS_DIR, CONTROL_MACHINE))
-    else:
+#END cleanup_mounts()
+
+def setup_nfs_apps_vols():
+
+    if ((EXTERNAL_MOUNT_APPS == 0)) and ((INSTANCE_TYPE != "controller")):
+        makedir(APPS_DIR)
+        f = open('/etc/fstab', 'a')
         f.write("""
-{1}:{2}    {0}     nfs      rw,hard,intr  0     0
-""".format(APPS_DIR, NFS_APPS_SERVER, NFS_APPS_DIR))
-    if ((INSTANCE_TYPE != "controller")):
-        f.write("""
-{1}:{0}    {0}     nfs      rw,hard,intr  0     0
-""".format(MUNGE_DIR, CONTROL_MACHINE))
-    f.close()
+{0}:{1}    {1}     nfs      rw,hard,intr  0     0
+""".format(CONTROL_MACHINE, APPS_DIR))
+        f.close()
 
 #END setup_nfs_apps_vols()
 
 def setup_nfs_home_vols():
 
-    f = open('/etc/fstab', 'a')
-    if not NFS_HOME_SERVER:
-        if ((INSTANCE_TYPE != "controller")):
-            f.write("""
+    if ((EXTERNAL_MOUNT_HOME == 0)) and ((INSTANCE_TYPE != "controller")):
+        f = open('/etc/fstab', 'a')
+        f.write("""
 {0}:/home    /home     nfs      rw,hard,intr  0     0
 """.format(CONTROL_MACHINE))
-    else:
-        f.write("""
-{0}:{1}    /home     nfs      rw,hard,intr  0     0
-""".format(NFS_HOME_SERVER, NFS_HOME_DIR))
-    f.close()
+        f.close()
 
 #END setup_nfs_home_vols()
 
 def setup_nfs_sec_vols():
-    f = open('/etc/fstab', 'a')
 
-    if CONTROLLER_SECONDARY_DISK:
-        if ((INSTANCE_TYPE != "controller")):
-            f.write("""
+    if ((CONTROLLER_SECONDARY_DISK)) and ((INSTANCE_TYPE != "controller")):
+        makedir(SEC_DISK_DIR)
+        f = open('/etc/fstab', 'a')
+        f.write("""
 {1}:{0}    {0}     nfs      rw,hard,intr  0     0
 """.format(SEC_DISK_DIR, CONTROL_MACHINE))
-    f.close()
+        f.close()
 
 #END setup_nfs_sec_vols()
 
 
 def setup_network_storage():
 
+    global EXTERNAL_MOUNT_APPS
+    global EXTERNAL_MOUNT_HOME
+    global EXTERNAL_MOUNT_MUNGE
+
     cifs_installed = 0
     lustre_installed = 0
-    f = open('/etc/fstab', 'a')
     for i in range(len(NETWORK_STORAGE)):
         makedir(NETWORK_STORAGE[i]["local_mount"])
-        if NETWORK_STORAGE[i]["fs_type"] == "cifs":
-            if cifs_installed == 0:
+        # Check if we're going to overlap with what's normally hosted on the
+        # controller (/apps, /home, /etc/munge).
+        # If so delete the entries pointing to the controller, and tell the
+        # nodes.
+        if NETWORK_STORAGE[i]["local_mount"] == APPS_DIR:
+            EXTERNAL_MOUNT_APPS = 1
+        elif NETWORK_STORAGE[i]["local_mount"] == "/home":
+            EXTERNAL_MOUNT_HOME = 1
+        elif NETWORK_STORAGE[i]["local_mount"] == MUNGE_DIR:
+            EXTERNAL_MOUNT_MUNGE = 1
+
+        if ((NETWORK_STORAGE[i]["fs_type"] == "cifs") and (cifs_installed == 0)):
                 subprocess.call('sudo yum install -y cifs-utils')
                 cifs_installed = 1
-        if NETWORK_STORAGE[i]["fs_type"] == "lustre":
-            if lustre_installed == 0:
+        elif ((NETWORK_STORAGE[i]["fs_type"] == "lustre") and (lustre_installed == 0)):
                 subprocess.call("mkdir /tmp/lustre", shell=True)
-                subprocess.call('for j in "kmod-lustre-client-2*.rpm" "lustre-client-2*.rpm"; do wget -r -l1 --no-parent -A "$j" "https://downloads.whamcloud.com/public/lustre/latest-feature-release/el7/client/RPMS/x86_64/" -P /tmp/lustre; done', shell=True)
-                subprocess.call("wait `jobs -p`", shell=True)
                 subprocess.call("sudo yum install -y wget libyaml", shell=True)
+                subprocess.call('for j in "kmod-lustre-client-2*.rpm" "lustre-client-2*.rpm"; do wget -r -l1 --no-parent -A "$j" "https://downloads.whamcloud.com/public/lustre/latest-feature-release/el7/client/RPMS/x86_64/" -P /tmp/lustre; done', shell=True)
                 subprocess.call('find /tmp/lustre -name "*.rpm" | xargs sudo rpm -ivh', shell=True)
                 subprocess.call("rm -rf /tmp/lustre", shell=True)
                 subprocess.call("modprobe lustre", shell=True)
                 lustre_installed = 1
-            else:
-                print "Lustre already installed, skipping..."
+
+        f = open('/etc/fstab', 'a')
         f.write("""
 {0}:{1}    {2}     {3}      {4}  0     0
 """.format(NETWORK_STORAGE[i]["server_ip"], NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], NETWORK_STORAGE[i]["mount_options"]))
-    f.close()
-    subprocess.call(shlex.split("sudo mount -a"))
+        f.close()
 
 #END setup_network_storage()
 
@@ -1053,23 +1062,17 @@ SELINUXTYPE=targeted
 
 def main():
 
+    start_motd()
+
     hostname = socket.gethostname()
 
     setup_selinux()
 
-    if INSTANCE_TYPE == "compute":
-        while not have_internet():
-            print "Waiting for internet connection"
+    cleanup_mounts()
 
-    if not os.path.exists(APPS_DIR + '/slurm'):
-        os.makedirs(APPS_DIR + '/slurm')
-        print "ww Created Slurm Folders"
-
-    if CONTROLLER_SECONDARY_DISK:
-        if not os.path.exists(SEC_DISK_DIR):
-            os.makedirs(SEC_DISK_DIR)
-
-    start_motd()
+    while not have_internet():
+        print "Waiting for internet connection"
+        time.sleep(5)
 
     makedir('/var/log/slurm')
 
@@ -1079,14 +1082,14 @@ def main():
     setup_bash_profile()
     setup_modules()
 
-    if (CONTROLLER_SECONDARY_DISK and (INSTANCE_TYPE == "controller")):
+    if ((CONTROLLER_SECONDARY_DISK)) and ((INSTANCE_TYPE == "controller")):
         setup_secondary_disks()
 
+    setup_network_storage()
     setup_nfs_apps_vols()
     setup_nfs_home_vols()
-    mount_nfs_vols()
     setup_nfs_sec_vols()
-    setup_network_storage()
+    mount_nfs_vols()
 
     if INSTANCE_TYPE == "controller":
         start_munge()
@@ -1131,11 +1134,13 @@ def main():
 
         subprocess.call(shlex.split('systemctl enable slurmctld'))
         subprocess.call(shlex.split('systemctl start slurmctld'))
-        setup_nfs_threads()
-        # Export at the end to signal that everything is up
-        subprocess.call(shlex.split('systemctl enable nfs-server'))
-        subprocess.call(shlex.split('systemctl start nfs-server'))
-        setup_nfs_exports()
+
+        if ((EXTERNAL_MOUNT_HOME == 0)) or ((EXTERNAL_MOUNT_APPS == 0)) or ((EXTERNAL_MOUNT_MUNGE == 0)):
+            setup_nfs_threads()
+            # Export at the end to signal that everything is up
+            subprocess.call(shlex.split('systemctl enable nfs-server'))
+            subprocess.call(shlex.split('systemctl start nfs-server'))
+            setup_nfs_exports()
 
         setup_sync_cronjob()
 
