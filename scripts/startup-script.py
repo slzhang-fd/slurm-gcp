@@ -999,8 +999,10 @@ def setup_secondary_disks():
 #END setup_secondary_disks()
 
 def mount_nfs_vols():
-    while subprocess.call(['mount', '-a']):
-        print "Waiting for " + APPS_DIR + " and /home to be mounted"
+    count = 0
+    while (subprocess.call(['mount', '-a']) and (count < 24)):
+        print "Waiting for /etc/fstab entries to be mounted"
+        count += 1
         time.sleep(5)
 
 #END mount_nfs_vols()
