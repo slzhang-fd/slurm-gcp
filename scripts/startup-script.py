@@ -119,7 +119,7 @@ def setup_modules():
         with open('/usr/share/Modules/init/.modulespath', 'a') as dotmp:
             dotmp.write(appsmfs)
 
-# END setup_modules
+# END setup_modules()
 
 
 def start_motd():
@@ -296,10 +296,12 @@ WantedBy=multi-user.target""")
     else:
         subprocess.call(['create-munge-key'])
 
-#END setup_munge ()
+#END setup_munge()
 
 def start_munge():
-        subprocess.call(['systemctl', 'start', 'munge'])
+
+    subprocess.call(['systemctl', 'start', 'munge'])
+
 #END start_munge()
 
 def setup_nfs_exports():
@@ -368,6 +370,7 @@ def expand_machine_type():
         print "Failed to get MachineType '%s' from google api (%s)" % (MACHINE_TYPE, str(e))
 
     return machine
+
 #END expand_machine_type()
 
 
@@ -989,8 +992,8 @@ def setup_network_storage():
 def setup_secondary_disks():
 
     subprocess.call(shlex.split("sudo mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/sdb"))
-    f = open('/etc/fstab', 'a')
 
+    f = open('/etc/fstab', 'a')
     f.write("""
 /dev/sdb    {0}  ext4    discard,defaults,nofail  0  2
 """.format(SEC_DISK_DIR))
@@ -1026,8 +1029,9 @@ def setup_sync_cronjob():
 # END setup_sync_cronjob()
 
 def setup_slurmd_cronjob():
-    #subprocess.call(shlex.split('crontab < /apps/slurm/scripts/cron'))
+
     os.system("echo '*/2 * * * * if [ `systemctl status slurmd | grep -c inactive` -gt 0 ]; then mount -a; systemctl restart slurmd; fi' | crontab -u root -")
+
 # END setup_slurmd_cronjob()
 
 def create_compute_image():
@@ -1047,6 +1051,7 @@ def create_compute_image():
                                 "--source-disk-zone {2} --force "
                                 "--family {0}-compute-image-family".format(
                                     CLUSTER_NAME, hostname, ZONE, ver)))
+
 #END create_compute_image()
 
 
@@ -1059,6 +1064,7 @@ SELINUX=permissive
 SELINUXTYPE=targeted
 """)
     f.close()
+
 #END setup_selinux()
 
 
@@ -1152,6 +1158,7 @@ def main():
                 CURR_SLURM_DIR, DEF_PART_NAME)))
 
         print "ww Done installing controller"
+
     elif INSTANCE_TYPE == "compute":
         install_compute_service_scripts()
         setup_slurmd_cronjob()
@@ -1186,7 +1193,6 @@ def main():
         except Exception:
             # Ignore blank files with no shell magic.
             pass
-
 
     if hostname != CLUSTER_NAME + "-compute-image":
         # Wait for the compute image to mark the partition up
