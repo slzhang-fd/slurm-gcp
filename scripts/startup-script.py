@@ -222,7 +222,11 @@ def install_packages():
                 'wget',
                 'tmux',
                 'pdsh',
-               ]
+                'autoconf',
+                'flex',
+                'gcc-c++',
+                'libevent-devel',
+                'libtool']
 
     while subprocess.call(['yum', 'update', '-y']):
         print "yum failed to update packages. Trying again in 5 seconds"
@@ -1090,14 +1094,6 @@ def install_ompi():
 
     FNULL = open(os.devnull, 'w')
 
-    packages = ['autoconf',
-                'flex',
-                'gcc-c++',
-                'git',
-                'libevent-devel',
-                'libtool']
-
-    subprocess.call(['yum', 'install', '-y'] + packages)
     if os.path.exists(APPS_DIR + '/ompi/' + OMPI_VERSION + '/src'):
         shutil.rmtree(APPS_DIR + '/ompi/' + OMPI_VERSION + '/src')
     ompi_git_cmd = ("git clone -b {ompi_version} "
