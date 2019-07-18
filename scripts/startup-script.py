@@ -1039,10 +1039,11 @@ def setup_secondary_disks():
 
 def mount_nfs_vols():
     count = 0
-    while (subprocess.call(['mount', '-a']) and (count < 24)):
+    while (subprocess.call(['mount', '-a']) and (count < 6)):
         print "Waiting for /etc/fstab entries to be mounted"
         count += 1
-        time.sleep(5)
+        time.sleep(10)
+    #subprocess.call(['mount', '-a'])
 
 #END mount_nfs_vols()
 
