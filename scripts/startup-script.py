@@ -997,10 +997,13 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
             gcsfuse_installed = 1
 
         if ((NETWORK_STORAGE[i]["fs_type"] == "gcsfuse")):
+            mount_options = NETWORK_STORAGE[i]["mount_options"]
+            if (( "nonempty" not in NETWORK_STORAGE[i]["mount_options"] )):
+                mount_options = mount_options + ",nonempty"
             f = open('/etc/fstab', 'a')
             f.write("""
 {0}    {1}     {2}      {3}  0     0
-""".format(NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], NETWORK_STORAGE[i]["mount_options"]))
+""".format(NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], mount_options))
             f.close()
         else:
             f = open('/etc/fstab', 'a')

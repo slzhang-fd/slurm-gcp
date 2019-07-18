@@ -79,9 +79,10 @@ resources:
     #
     # If using gcsfuse, enter the bucket name in the remote_mount field, and
     # "gcs" in the server_ip field. To enable automatic mounting for users, in
-    # "mount_options" enter "defaults,_netdev,allow_other,uid=XXXX,gid=XXXX",
-    # replacing the "XXXX" with your OSLogin UID and GID. If not using OSLogin
-    # use your unix UID and GID. See
+    # "mount_options" enter
+    # "defaults,nonempty,_netdev,allow_other,uid=XXXX,gid=XXXX", replacing the
+    # "XXXX" with your OSLogin UID and GID. If not using OSLogin use your unix
+    # UID and GID. See
     # https://github.com/GoogleCloudPlatform/gcsfuse/blob/master/docs/mounting.md
     # for more information.
     #
