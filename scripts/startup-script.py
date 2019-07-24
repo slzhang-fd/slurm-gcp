@@ -921,29 +921,6 @@ def cleanup_mounts():
 
 #END cleanup_mounts()
 
-def setup_nfs_apps_vols():
-
-    if ((EXTERNAL_MOUNT_APPS == 0)) and ((INSTANCE_TYPE != "controller")):
-        makedir(APPS_DIR)
-        f = open('/etc/fstab', 'a')
-        f.write("""
-{0}:{1}    {1}     nfs      rw,hard,intr  0     0
-""".format(CONTROL_MACHINE, APPS_DIR))
-        f.close()
-
-#END setup_nfs_apps_vols()
-
-def setup_nfs_home_vols():
-
-    if ((EXTERNAL_MOUNT_HOME == 0)) and ((INSTANCE_TYPE != "controller")):
-        f = open('/etc/fstab', 'a')
-        f.write("""
-{0}:/home    /home     nfs      rw,hard,intr  0     0
-""".format(CONTROL_MACHINE))
-        f.close()
-
-#END setup_nfs_home_vols()
-
 def setup_nfs_sec_vols():
 
     if ((CONTROLLER_SECONDARY_DISK)) and ((INSTANCE_TYPE != "controller")):
@@ -1177,8 +1154,6 @@ def main():
         setup_secondary_disks()
 
     setup_network_storage()
-    setup_nfs_apps_vols()
-    setup_nfs_home_vols()
     setup_nfs_sec_vols()
     mount_nfs_vols()
 
