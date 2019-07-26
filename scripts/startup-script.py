@@ -724,7 +724,6 @@ def install_meta_files():
 
 def install_slurm():
 
-    makedir(APPS_DIR + '/slurm')
     print "ww Created Slurm Folders"
 
     SLURM_PREFIX = "";
@@ -914,10 +913,10 @@ def cleanup_mounts():
     # Any such configurations should be provided in the YAML network_storage
     # field.
     os.system("umount $(cat /etc/fstab | grep -v '#' | awk '{print $1}' | cut -d':' -f2 | grep -v 'UUID')")
-    os.system("sed -i '/$CONTROL_MACHINE:\//d' /etc/fstab")
-    os.system("sed -i '/:APPS_DIR/d' /etc/fstab")
+    os.system("sed -i '/{}:\//d' /etc/fstab".format(CONTROL_MACHINE))
+    os.system("sed -i '/:{}/d' /etc/fstab".format(APPS_DIR))
     os.system("sed -i '/:\/home/d' /etc/fstab")
-    os.system("sed -i '/:MUNGE_DIR/d' /etc/fstab")
+    os.system("sed -i '/:{}/d' /etc/fstab".format(MUNGE_DIR))
 
 #END cleanup_mounts()
 
@@ -999,6 +998,19 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
 """.format(NETWORK_STORAGE[i]["server_ip"], NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], NETWORK_STORAGE[i]["mount_options"]))
             f.close()
 
+    if ((EXTERNAL_MOUNT_APPS == 0) and (INSTANCE_TYPE != "controller")):
+        f = open('/etc/fstab', 'a')
+        f.write("""
+{0}:{1}    {1}     nfs      rw,hard,intr,_netdev  0     0
+""".format(CONTROL_MACHINE, APPS_DIR))
+        f.close()
+    if ((EXTERNAL_MOUNT_HOME == 0) and (INSTANCE_TYPE != "controller")):
+        f = open('/etc/fstab', 'a')
+        f.write("""
+{0}:/home    /home     nfs      rw,hard,intr,_netdev  0     0
+""".format(CONTROL_MACHINE))
+        f.close()
+
 #END setup_network_storage()
 
 
@@ -1016,7 +1028,7 @@ def setup_secondary_disks():
 
 def mount_nfs_vols():
     count = 0
-    while (subprocess.call(['mount', '-a']) and (count < 6)):
+    while (subprocess.call(['mount', '-a']) and (count < 3)):
         print "Waiting for /etc/fstab entries to be mounted"
         count += 1
         time.sleep(10)
@@ -1135,6 +1147,8 @@ def main():
 
     setup_selinux()
 
+    makedir(APPS_DIR + '/slurm')
+
     cleanup_mounts()
 
     while not have_internet():
@@ -1155,9 +1169,9 @@ def main():
 
     setup_network_storage()
     setup_nfs_sec_vols()
-    mount_nfs_vols()
 
     if INSTANCE_TYPE == "controller":
+        mount_nfs_vols()
         start_munge()
         install_slurm()
         install_ompi()
@@ -1219,6 +1233,8 @@ def main():
         print "ww Done installing controller"
 
     elif INSTANCE_TYPE == "compute":
+        while "/apps" not in subprocess.check_output(["mount"]):
+            mount_nfs_vols()
         install_compute_service_scripts()
         setup_slurmd_cronjob()
         start_munge()
@@ -1244,6 +1260,8 @@ def main():
             subprocess.call(shlex.split('systemctl start slurmd'))
 
     else: # login nodes
+        while "/apps" not in subprocess.check_output(["mount"]):
+            mount_nfs_vols()
         start_munge()
 
         try:
