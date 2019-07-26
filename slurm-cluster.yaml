@@ -24,57 +24,69 @@ resources:
   type: slurm.jinja
   properties:
     cluster_name            : g1
-    static_node_count       : 2
-    max_node_count          : 10
 
+    ## Optional Slurm configuration fields
+    #suspend_time               : 300
+    #slurm_version           : 19.05-latest
+
+    ## User authentication
+    default_users           : < GCP user email addr, comma separated >
+    #default_account         : default
+
+    ## Location & Network Configuration
     zone                    : us-central1-b
     cidr                    : 10.10.0.0/16
 
-    # Optional network configuration fields
-    # READ slurm.jinja.schema for prerequisites
+    ## Optional network configuration fields
+    ## READ slurm.jinja.schema for prerequisites
     #vpc_net                 : < my-vpc >
     #vpc_subnet              : < my-subnet >
     #shared_vpc_host_proj    : < my-shared-vpc-project-name >
 
-    ## The 'compute_image' field allows you to override the default CentOS 7 image.
-    ## Find your image URI on the Images page in the GCP console, click "Equivalent REST", and input the 'selfLink' field below.
-    #compute_image          : projects/centos-cloud/global/images/family/centos-7
-    #login_image            :
-
+    ## Controller Node Configuration
     controller_machine_type : n1-standard-2
-    compute_machine_type    : n1-standard-2
-    login_machine_type      : n1-standard-2
-    #login_node_count        : 0
-
-    # Optional compute configuration fields
-    #cpu_platform               : Intel Skylake
-    #preemptible_bursting       : False
-    #external_compute_ips       : False
-    #private_google_access      : True
-
+    #controller_image        :
     #controller_disk_type       : pd-standard
     #controller_disk_size_gb    : 50
     #controller_labels          :
     #     key1 : value1
     #     key2 : value2
+    #controller_secondary_disk          : True
+    #controller_secondary_disk_type     : pd-standard
+    #controller_secondary_disk_size_gb  : 300
 
+    ## Login Node(s) Configuration
+    #login_node_count        : 0
+    login_machine_type      : n1-standard-2
+    #login_image             : 
     #login_disk_type            : pd-standard
     #login_disk_size_gb         : 10
     #login_labels               :
     #     key1 : value1
     #     key2 : value2
 
+    ## Compute Node(s) Configuration
+    static_node_count       : 2
+    max_node_count          : 10
+    compute_machine_type    : n1-standard-2
+    ## The 'compute_image' field allows you to override the default CentOS 7 image.
+    ## Find your image URI on the Images page in the GCP console, click "Equivalent REST", and input the 'selfLink' field below.
+    #compute_image              : projects/centos-cloud/global/images/family/centos-7
     #compute_disk_type          : pd-standard
     #compute_disk_size_gb       : 10
     #compute_labels             :
     #     key1 : value1
     #     key2 : value2
 
-    # The 'compute_image' field allows you to override the default CentOS 7
-    # image.
-    # Find your image URI on the Images page in the GCP console, click
-    # "Equivalent REST", and input the 'selfLink' field below.
-    #compute_image              : projects/centos-cloud/global/images/family/centos-7
+    ## Optional GPU configuration fields
+    #gpu_type                   : nvidia-tesla-v100
+    #gpu_count                  : 8
+
+    ## Optional compute configuration fields
+    #cpu_platform               : Intel Skylake
+    #preemptible_bursting       : False
+    #external_compute_ips       : False
+    #private_google_access      : True
 
     # The 'network_storage' array allows you to specify multiple network
     # mounts. Supported filesystems: nfs, cifs, gcsfuse, and lustre.
@@ -99,20 +111,5 @@ resources:
     #       local_mount         :
     #       fs_type             :
     #       mount_options       :
-
-    #controller_secondary_disk          : True
-    #controller_secondary_disk_type     : pd-standard
-    #controller_secondary_disk_size_gb  : 300
-
-    # Optional GPU configuration fields
-    #gpu_type                   : nvidia-tesla-v100
-    #gpu_count                  : 8
-
-    # Optional timer fields
-    #suspend_time               : 300
-
-    default_users           : < GCP user email addr, comma separated >
-    #slurm_version           : 19.05-latest
-    #default_account         : default
 
 #  [END cluster_yaml]
