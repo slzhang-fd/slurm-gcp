@@ -151,10 +151,13 @@ complete before making changes in your home directory.
     f.write(msg)
     f.close()
 
+    print "ww Began installing controller"
+
 # END start_motd()
 
 
 def end_motd(broadcast=True):
+    print "ww Completed Startup-Script"
 
     f = open('/etc/motd', 'w')
     f.write(MOTD_HEADER)
@@ -189,6 +192,8 @@ def have_internet():
 
 
 def install_packages():
+
+    print "ww Installing packages"
 
     packages = ['bind-utils',
                 'epel-release',
@@ -254,6 +259,7 @@ def install_packages():
 
 
 def setup_munge():
+    print "ww Installing munge"
 
     munge_service_patch = "/usr/lib/systemd/system/munge.service"
     f = open(munge_service_patch, 'w')
@@ -383,6 +389,7 @@ def expand_machine_type():
 
 
 def install_slurm_conf():
+    print "ww Installing Slurm"
 
     machine = expand_machine_type()
     def_mem_per_cpu = max(100,
@@ -723,8 +730,7 @@ def install_meta_files():
 #END install_meta_files()
 
 def install_slurm():
-
-    print "ww Created Slurm Folders"
+    print "ww Installing Slurm"
 
     SLURM_PREFIX = "";
 
@@ -908,6 +914,7 @@ LD_LIBRARY_PATH=$CUDA_PATH/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 #END setup_bash_profile()
 
 def cleanup_mounts():
+    print "ww Cleaning up mounts"
     # Clean up any old entries for /apps, /home, or /etc/munge from the
     # provided image.
     # Any such configurations should be provided in the YAML network_storage
@@ -934,6 +941,7 @@ def setup_nfs_sec_vols():
 
 
 def setup_network_storage():
+    print "ww Set up network storage"
 
     global EXTERNAL_MOUNT_APPS
     global EXTERNAL_MOUNT_HOME
@@ -1015,6 +1023,7 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
 
 
 def setup_secondary_disks():
+    print "ww Set up secondary disks"
 
     subprocess.call(shlex.split("sudo mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard /dev/sdb"))
 
@@ -1027,6 +1036,8 @@ def setup_secondary_disks():
 #END setup_secondary_disks()
 
 def mount_nfs_vols():
+    print "ww Mount NFS Volumes"
+
     count = 0
     while (subprocess.call(['mount', '-a']) and (count < 3)):
         print "Waiting for /etc/fstab entries to be mounted"
@@ -1061,6 +1072,7 @@ def setup_slurmd_cronjob():
 # END setup_slurmd_cronjob()
 
 def create_compute_image():
+    print "ww Creating Compute Image"
 
     end_motd(False)
     subprocess.call("sync")
@@ -1081,6 +1093,7 @@ def create_compute_image():
 #END create_compute_image()
 
 def install_ompi():
+    print "ww Installing OpenMPI"
 
     FNULL = open(os.devnull, 'w')
 
@@ -1152,7 +1165,7 @@ def main():
     cleanup_mounts()
 
     while not have_internet():
-        print "Waiting for internet connection"
+        print "ww Waiting for internet connection"
         time.sleep(5)
 
     makedir('/var/log/slurm')
@@ -1171,12 +1184,14 @@ def main():
     setup_nfs_sec_vols()
 
     if INSTANCE_TYPE == "controller":
+        print "ww Installing Controller"
         mount_nfs_vols()
         start_munge()
         install_slurm()
         install_ompi()
 
         try:
+            print "ww Running customer-controller-install"
             subprocess.call("{}/slurm/scripts/custom-controller-install"
                             .format(APPS_DIR))
         except Exception:
@@ -1185,9 +1200,11 @@ def main():
 
         install_controller_service_scripts()
 
+        print "ww Enable & Start MariaDB"
         subprocess.call(shlex.split('systemctl enable mariadb'))
         subprocess.call(shlex.split('systemctl start mariadb'))
 
+        print "ww Creating MySQL Users"
         subprocess.call(['mysql', '-u', 'root', '-e',
             "create user 'slurm'@'localhost'"])
         subprocess.call(['mysql', '-u', 'root', '-e',
@@ -1195,12 +1212,14 @@ def main():
         subprocess.call(['mysql', '-u', 'root', '-e',
             "grant all on slurm_acct_db.* TO 'slurm'@'{0}';".format(CONTROL_MACHINE)])
 
+        print "ww Enabling & Starting SlurmDB"
         subprocess.call(shlex.split('systemctl enable slurmdbd'))
         subprocess.call(shlex.split('systemctl start slurmdbd'))
 
         # Wait for slurmdbd to come up
         time.sleep(5)
 
+        print "ww Configuring Slurm Users"
         oslogin_chars = ['@', '.', '+', '-', '!', '?', '#', '$', '%', '&',
                          '\'', '*', '/', '=', '^', '`', '{', '}', '|', '~']
 
@@ -1213,10 +1232,12 @@ def main():
         subprocess.call(shlex.split(CURR_SLURM_DIR + '/bin/sacctmgr -i add account ' + DEF_SLURM_ACCT))
         subprocess.call(shlex.split(CURR_SLURM_DIR + '/bin/sacctmgr -i add user ' + SLURM_USERS + ' account=' + DEF_SLURM_ACCT))
 
+        print "ww Starting SlurmCTL"
         subprocess.call(shlex.split('systemctl enable slurmctld'))
         subprocess.call(shlex.split('systemctl start slurmctld'))
 
         if ((EXTERNAL_MOUNT_HOME == 0)) or ((EXTERNAL_MOUNT_APPS == 0)) or ((EXTERNAL_MOUNT_MUNGE == 0)):
+            print "ww Setting up controller NFS server"
             setup_nfs_threads()
             # Export at the end to signal that everything is up
             subprocess.call(shlex.split('systemctl enable nfs-server'))
@@ -1235,6 +1256,7 @@ def main():
     elif INSTANCE_TYPE == "compute":
         while "/apps" not in subprocess.check_output(["mount"]):
             mount_nfs_vols()
+        print "ww Installing Compute"
         install_compute_service_scripts()
         setup_slurmd_cronjob()
         start_munge()
@@ -1249,17 +1271,21 @@ def main():
         if hostname == CLUSTER_NAME + "-compute-image":
             create_compute_image()
 
+            print "ww Setting partition state=up"
             subprocess.call(shlex.split(
                 "{}/bin/scontrol update partitionname={} state=up".format(
                     CURR_SLURM_DIR, DEF_PART_NAME)))
 
+            print "ww Deleting compute-image"
             subprocess.call(shlex.split("gcloud compute instances "
                                         "delete {} --zone {} --quiet".format(
                                             hostname, ZONE)))
         else:
+            print "ww Start SlurmD"
             subprocess.call(shlex.split('systemctl start slurmd'))
 
     else: # login nodes
+        print "ww Installing Login"
         while "/apps" not in subprocess.check_output(["mount"]):
             mount_nfs_vols()
         start_munge()
