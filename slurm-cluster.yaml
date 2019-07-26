@@ -36,6 +36,11 @@ resources:
     #vpc_subnet              : < my-subnet >
     #shared_vpc_host_proj    : < my-shared-vpc-project-name >
 
+    ## The 'compute_image' field allows you to override the default CentOS 7 image.
+    ## Find your image URI on the Images page in the GCP console, click "Equivalent REST", and input the 'selfLink' field below.
+    #compute_image          : projects/centos-cloud/global/images/family/centos-7
+    #login_image            :
+
     controller_machine_type : n1-standard-2
     compute_machine_type    : n1-standard-2
     login_machine_type      : n1-standard-2

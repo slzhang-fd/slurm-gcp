@@ -70,6 +70,8 @@ optional:
 - suspend_time
 - vpc_net
 - vpc_subnet
+- controller_image
+- login_image
 
 properties:
   cidr:
@@ -101,6 +103,16 @@ properties:
     type        : string
     default     : projects/centos-cloud/global/images/family/centos-7
     description : Image to use as a source image for the compute image.
+
+  controller_image:
+    type        : string
+    default     : projects/centos-cloud/global/images/family/centos-7
+    description : Image to use as a source image for the controller instance.
+
+  login_image:
+    type        : string
+    default     : projects/centos-cloud/global/images/family/centos-7
+    description : Image to use as a source image for the login instance.
 
   compute_labels:
     type        : object
