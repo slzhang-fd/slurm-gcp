@@ -263,7 +263,7 @@ def setup_munge():
     print "ww Installing munge"
 
     munge_service_path = "/usr/lib/systemd/system/munge.service"
-    os.remove(munge_service_path)
+    remove(munge_service_path)
     f = open(munge_service_path, 'w')
     f.write("""
 [Unit]
@@ -292,27 +292,19 @@ WantedBy=multi-user.target""")
 
     subprocess.call(['systemctl', 'enable', 'munge'])
 
-    if ((INSTANCE_TYPE != "controller") and (EXTERNAL_MOUNT_MUNGE == 0)):
-        os.system("sed -i '/\{}/d' /etc/fstab".format(MUNGE_DIR))
-        f = open('/etc/fstab', 'a')
-        f.write("""
-{1}:{0}    {0}     nfs      rw,hard,intr  0     0
-""".format(MUNGE_DIR, CONTROL_MACHINE))
-        f.close()
-        return
+    if ((INSTANCE_TYPE == "controller")):
+        if MUNGE_KEY:
+            remove(MUNGE_DIR + '/munge.key')
+            f = open(MUNGE_DIR +'/munge.key', 'w')
+            f.write(MUNGE_KEY)
+            f.close()
 
-    if MUNGE_KEY:
-        os.remove(MUNGE_DIR + '/munge.key')
-        f = open(MUNGE_DIR +'/munge.key', 'w')
-        f.write(MUNGE_KEY)
-        f.close()
-
-        subprocess.call(['chown', '-R', 'munge:', MUNGE_DIR, '/var/log/munge/'])
-        os.chmod(MUNGE_DIR + '/munge.key' ,0o400)
-        os.chmod(MUNGE_DIR                ,0o700)
-        os.chmod('/var/log/munge/'        ,0o700)
-    else:
-        subprocess.call(['create-munge-key'])
+            subprocess.call(['chown', '-R', 'munge:', MUNGE_DIR, '/var/log/munge/'])
+            os.chmod(MUNGE_DIR + '/munge.key' ,0o400)
+            os.chmod(MUNGE_DIR                ,0o700)
+            os.chmod('/var/log/munge/'        ,0o700)
+        else:
+            subprocess.call(['create-munge-key'])
 
 #END setup_munge()
 
@@ -326,22 +318,22 @@ def setup_nfs_exports():
 
     f = open('/etc/exports', 'w')
     if EXTERNAL_MOUNT_HOME == 0:
-        os.system("sed -i '/\/home/d' /etc/fstab")
+        os.system("sed -i '/\/home/d' /etc/exports")
         f.write("""
 /home  *(rw,no_subtree_check,no_root_squash)
 """)
     if EXTERNAL_MOUNT_APPS == 0:
-        #os.system("sed -i '/\{}/d' /etc/fstab".format(APPS_DIR))
+        os.system("sed -i '/\{}/d' /etc/exports".format(APPS_DIR))
         f.write("""
 %s  *(rw,no_subtree_check,no_root_squash)
 """ % APPS_DIR)
     if EXTERNAL_MOUNT_MUNGE == 0:
-        os.system("sed -i '/\/etc\/munge/d' /etc/fstab")
+        os.system("sed -i '/\/etc\/munge/d' /etc/exports")
         f.write("""
 /etc/munge *(rw,no_subtree_check,no_root_squash)
 """)
     if CONTROLLER_SECONDARY_DISK:
-        os.system("sed -i '/{}/d' /etc/fstab".format(SEC_DISK_DIR))
+        os.system("sed -i '/{}/d' /etc/exports".format(SEC_DISK_DIR))
         f.write("""
 %s  *(rw,no_subtree_check,no_root_squash)
 """ % SEC_DISK_DIR)
@@ -621,7 +613,7 @@ PartitionName={} Nodes={}-compute[1-{}] Default=YES MaxTime=INFINITE State=UP LL
 
     etc_dir = CURR_SLURM_DIR + '/etc'
     makedir(etc_dir)
-    os.remove(etc_dir + '/slurm.conf')
+    remove(etc_dir + '/slurm.conf')
     f = open(etc_dir + '/slurm.conf', 'w')
     f.write(conf)
     f.close()
@@ -666,7 +658,7 @@ StorageType=accounting_storage/mysql
 """.format(apps_dir = APPS_DIR, control_machine = CONTROL_MACHINE)
     etc_dir = CURR_SLURM_DIR + '/etc'
     makedir(etc_dir)
-    os.remove(etc_dir + '/slurmdbd.conf')
+    remove(etc_dir + '/slurmdbd.conf')
     f = open(etc_dir + '/slurmdbd.conf', 'w')
     f.write(conf)
     f.close()
@@ -699,7 +691,7 @@ ConstrainDevices=yes
         f.close()
 
     if GPU_COUNT:
-        os.remove(etc_dir + '/gres.conf')
+        remove(etc_dir + '/gres.conf')
         f = open(etc_dir + '/gres.conf', 'w')
         f.write("NodeName=%s-compute[1-%d] Name=gpu File=/dev/nvidia[0-%d]"
                 % (CLUSTER_NAME, MAX_NODE_COUNT, (GPU_COUNT - 1)))
@@ -733,6 +725,7 @@ def install_meta_files():
         req.add_header('Metadata-Flavor', 'Google')
         resp = urllib2.urlopen(req)
 
+        remove("{}/{}".format(scripts_path, file_name))
         f = open("{}/{}".format(scripts_path, file_name), 'w')
         f.write(resp.read())
         f.close()
@@ -914,6 +907,13 @@ def makedir(dir):
 
 #END makedir()
 
+def remove(file):
+
+    if os.path.exists(file):
+        os.remove(file)
+
+#END remove()
+
 def setup_bash_profile():
 
     if not os.path.exists('/etc/profile.d/slurm.sh'):
@@ -937,16 +937,14 @@ LD_LIBRARY_PATH=$CUDA_PATH/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 
 def cleanup_mounts():
     print "ww Cleaning up mounts"
-    # Clean up any old entries for /apps, /home, or /etc/munge from the
-    # provided image.
-    # Any such configurations should be provided in the YAML network_storage
-    # field.
-    os.system("umount $(cat /etc/fstab | grep -v '#' | awk '{print $1}' | cut -d':' -f2 | grep -v 'UUID')")
-    os.system("sed -i '/{}:\//d' /etc/fstab".format(CONTROL_MACHINE))
+    os.system("umount $(cat /etc/fstab | grep -v '#' | awk '{print $2}' | grep -v 'UUID')")
+    #os.system("sed -i '/{}:\//d' /etc/fstab".format(CONTROL_MACHINE))
     #os.system("sed -i '/:{}/d' /etc/fstab".format(APPS_DIR))
-    os.system("sed -i '/:\/apps/d' /etc/fstab")
-    os.system("sed -i '/:\/home/d' /etc/fstab")
-    os.system("sed -i '/:{}/d' /etc/fstab".format(MUNGE_DIR))
+    #os.system("sed -i '/:\/apps/d' /etc/fstab")
+    #os.system("sed -i '/:\/home/d' /etc/fstab")
+    #os.system("sed -i '/:{}/d' /etc/fstab".format(MUNGE_DIR))
+    #os.system("sed -i '/:\/etc\/munge/d' /etc/fstab")
+    remove('/etc/fstab')
 
 #END cleanup_mounts()
 
@@ -970,7 +968,13 @@ def setup_network_storage():
     global EXTERNAL_MOUNT_HOME
     global EXTERNAL_MOUNT_MUNGE
 
+    EXTERNAL_MOUNT_APPS = 0
+    EXTERNAL_MOUNT_HOME = 0
+    EXTERNAL_MOUNT_MUNGE = 0
     cifs_installed = 0
+
+    if NETWORK_STORAGE == []:
+        print "WEIRD"
     for i in range(len(NETWORK_STORAGE)):
         makedir(NETWORK_STORAGE[i]["local_mount"])
         # Check if we're going to overlap with what's normally hosted on the
@@ -1025,17 +1029,23 @@ gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg
 """.format(NETWORK_STORAGE[i]["server_ip"], NETWORK_STORAGE[i]["remote_mount"], NETWORK_STORAGE[i]["local_mount"], NETWORK_STORAGE[i]["fs_type"], NETWORK_STORAGE[i]["mount_options"]))
             f.close()
 
-    if ((EXTERNAL_MOUNT_APPS == 0) and (INSTANCE_TYPE != "controller")):
-        f = open('/etc/fstab', 'a')
-        f.write("""
+        if ((EXTERNAL_MOUNT_APPS == 0) and (INSTANCE_TYPE != "controller")):
+            f = open('/etc/fstab', 'a')
+            f.write("""
 {0}:{1}    {1}     nfs      rw,hard,intr,_netdev  0     0
 """.format(CONTROL_MACHINE, APPS_DIR))
-        f.close()
-    if ((EXTERNAL_MOUNT_HOME == 0) and (INSTANCE_TYPE != "controller")):
-        f = open('/etc/fstab', 'a')
-        f.write("""
+            f.close()
+        if ((EXTERNAL_MOUNT_HOME == 0) and (INSTANCE_TYPE != "controller")):
+            f = open('/etc/fstab', 'a')
+            f.write("""
 {0}:/home    /home     nfs      rw,hard,intr,_netdev  0     0
 """.format(CONTROL_MACHINE))
+            f.close()
+        if ((INSTANCE_TYPE != "controller") and (EXTERNAL_MOUNT_MUNGE == 0)):
+            f = open('/etc/fstab', 'a')
+            f.write("""
+{1}:{0}    {0}     nfs      rw,hard,intr,_netdev  0     0
+""".format(MUNGE_DIR, CONTROL_MACHINE))
         f.close()
 
 #END setup_network_storage()
@@ -1057,10 +1067,10 @@ def setup_secondary_disks():
 def mount_nfs_vols():
     print "ww Mount NFS Volumes"
 
-    count = 0
-    while (subprocess.call(['mount', '-a']) and (count < 3)):
+    #count = 0
+    while (subprocess.call(['mount', '-a'])):# and (count < 3)):
         print "Waiting for /etc/fstab entries to be mounted"
-        count += 1
+        #count += 1
         time.sleep(10)
     #subprocess.call(['mount', '-a'])
 
@@ -1069,7 +1079,7 @@ def mount_nfs_vols():
 # Tune the NFS server to support many mounts
 def setup_nfs_threads():
 
-    os.system("sed -i '/RPCNFSDCOUNT/d' /etc/sysconfig/nfs/")
+    os.system("sed -i '/RPCNFSDCOUNT/d' /etc/sysconfig/nfs")
     f = open('/etc/sysconfig/nfs', 'a')
     f.write("""
 # Added by Google
@@ -1211,13 +1221,6 @@ def main():
         start_munge()
         install_slurm()
         install_ompi()
-        #slurm_install = threading.Thread(target=install_slurm)
-        #slurm_install.start()
-        #ompi_install = threading.Thread(target=install_ompi)
-        #ompi_install.start()
-
-        #while ((slurm_install.isAlive()) and (ompi_install.isAlive())):
-        #    time.sleep(10)
 
         try:
             print "ww Running customer-controller-install"
@@ -1283,8 +1286,9 @@ def main():
         print "ww Done installing controller"
 
     elif INSTANCE_TYPE == "compute":
-        while "/apps" not in subprocess.check_output(["mount"]):
-            mount_nfs_vols()
+        mount_nfs_vols()
+        #while "/apps" not in subprocess.check_output(["mount"]):
+        #    mount_nfs_vols()
         print "ww Installing Compute"
         install_compute_service_scripts()
         setup_slurmd_cronjob()

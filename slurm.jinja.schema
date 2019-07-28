@@ -258,6 +258,7 @@ properties:
 
         server_ip:
           type          : string
+          default       : blank
           description   : IP of the remote file server.
 
         remote_mount:

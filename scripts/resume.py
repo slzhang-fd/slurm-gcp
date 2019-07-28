@@ -120,13 +120,13 @@ def create_instance(compute, project, zone, instance_type, instance_name,
         'value': shutdown_script
     })
 
-    if not have_compute_img:
-        startup_script = open(
-            '/apps/slurm/scripts/startup-script.py', 'r').read()
-        config['metadata']['items'].append({
-            'key': 'startup-script',
-            'value': startup_script
-        })
+    #if not have_compute_img:
+    startup_script = open(
+        '/apps/slurm/scripts/startup-script.py', 'r').read()
+    config['metadata']['items'].append({
+        'key': 'startup-script',
+        'value': startup_script
+    })
 
     if GPU_TYPE:
         accel_type = ("https://www.googleapis.com/compute/v1/"
@@ -235,17 +235,18 @@ def main(arg_nodes):
     node_list = nodes_str.splitlines()
 
     have_compute_img = False
-    try:
-        image_response = compute.images().getFromFamily(
-            project = PROJECT,
-            family = CLUSTER_NAME + "-compute-image-family").execute()
-        if image_response['status'] != "READY":
-            logging.debug("image not ready, using the startup script")
-            raise Exception("image not ready")
-        source_disk_image = image_response['selfLink']
-        have_compute_img = True
-    except:
-        source_disk_image = "https://www.googleapis.com/compute/v1/{}".format(COMPUTE_IMAGE)
+    #try:
+    #    image_response = compute.images().getFromFamily(
+    #        project = PROJECT,
+    #        family = CLUSTER_NAME + "-compute-image-family").execute()
+    #    if image_response['status'] != "READY":
+    #        logging.debug("image not ready, using the startup script")
+    #        raise Exception("image not ready")
+    #    source_disk_image = image_response['selfLink']
+    #    have_compute_img = True
+    #except:
+    #/    source_disk_image = "https://www.googleapis.com/compute/v1/{}".format(COMPUTE_IMAGE)
+    source_disk_image = "https://www.googleapis.com/compute/v1/{}".format(COMPUTE_IMAGE)
         #if COMPUTE_IMAGE:
         #    source_disk_image = "https://www.googleapis.com/compute/v1/{}".format(COMPUTE_IMAGE)
         #else:
