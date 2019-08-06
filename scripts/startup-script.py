@@ -412,7 +412,7 @@ MpiDefault=none
 #PluginDir=
 #PlugStackConfig=
 #PrivateData=jobs
-LaunchParameters=send_gids
+LaunchParameters=send_gids,enable_nss_slurm
 
 # Always show cloud nodes. Otherwise cloud nodes are hidden until they are
 # resumed. Having them shown can be useful in detecting downed nodes.
@@ -746,6 +746,9 @@ def install_slurm():
     subprocess.call(['make', '-j', 'install'])
 
     subprocess.call(shlex.split("ln -s %s %s" % (SLURM_PREFIX, CURR_SLURM_DIR)))
+
+    os.chdir('contribs/nss_slurm')
+    subprocess.call(['make', '-j', 'install'])
 
     os.chdir(prev_path)
 
@@ -1102,6 +1105,10 @@ def main():
         setup_slurmd_cronjob()
         mount_nfs_vols()
         start_munge()
+
+        subprocess.call(shlex.split("ln -s %s/lib/libnss_slurm.so.2 /usr/lib64/libnss_slurm.so.2" % (CURR_SLURM_DIR)))
+
+        subprocess.call(shlex.split("sed -i 's/\\(^\\(passwd\\|group\\):\\s\\+files sss\\)/\\1 slurm/g' /etc/nsswitch.conf"))
 
         try:
             subprocess.call("{}/slurm/scripts/custom-compute-install"
